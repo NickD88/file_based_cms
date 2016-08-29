@@ -49,8 +49,34 @@ def error_for_filename(input)
   end
 end
 
+def valid_signin?(username, password)
+  username == "admin" && password == "secret"
+end
+
 get "/new" do
   erb :new
+end
+
+get "/users/signin" do
+  erb :signin
+end
+
+post "/users/signin" do
+  if valid_signin?(params[:username], params[:password])
+    session[:message] = "Welcome #{params[:username]}"
+    session[:username] = params[:username]
+    redirect "/"
+  else
+    session[:message] = "Invalid credentials"
+    status 422
+    erb :signin
+  end
+end
+
+post "/users/signout" do
+  session.delete(:username)
+  session[:message] = "You have been signed out."
+  redirect "/"
 end
 
 post "/create" do
