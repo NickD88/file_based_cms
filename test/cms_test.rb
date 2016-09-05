@@ -31,6 +31,10 @@ class AppTest < Minitest::Test
     last_request.env["rack.session"]
   end
 
+  def admin_session
+    { "rack.session" => { username: "admin" } }
+  end
+
   def test_index
     create_document "about.txt"
     create_document "changes.md"
@@ -71,14 +75,14 @@ class AppTest < Minitest::Test
   def test_editing_files
     create_document "about.txt"
 
-    get "/about.txt/edit"
+    get "/about.txt/edit", {}, admin_session
     assert_equal 200, last_response.status
     assert_includes last_response.body, "<textarea"
     assert_includes last_response.body, "Save Changes</button>"
   end
 
   def test_saving_edit
-    post "/history.txt", content: "new content"
+    post "/history.txt", {content: "new content"}, admin_session
 
     assert_equal 302, last_response.status
     assert_equal "history.txt has been updated", session[:message]
@@ -89,7 +93,7 @@ class AppTest < Minitest::Test
   end
 
   def test_create_new_document
-    post "/create", filename: "test.txt"
+    post "/create", {filename: "test.txt"}, admin_session
     assert_equal 302, last_response.status
     assert_equal "test.txt has been created.", session[:message]
 
@@ -98,20 +102,20 @@ class AppTest < Minitest::Test
   end
 
   def test_view_add_document_form
-    get "/new"
+    get "/new", {}, admin_session
     assert_equal 200, last_response.status
 
     assert_includes last_response.body, "<input name="
   end
 
   def test_create_blank_filename
-    post "/create", filename: ""
+    post "/create", { filename: "" }, admin_session
     assert_equal 422, last_response.status
     assert_includes last_response.body, "A name is required"
   end
 
   def test_filename_without_extension
-    post "/create", filename: "text"
+    post "/create", { filename: "text" }, admin_session
     assert_equal 422, last_response.status
     assert_includes last_response.body, "Please include the filename extension (.txt or .md)"
   end
@@ -119,7 +123,7 @@ class AppTest < Minitest::Test
   def test_delete_file
     create_document "test_delete.txt"
 
-    post "/test_delete.txt/delete"
+    post "/test_delete.txt/delete", {}, admin_session
     assert_equal 302, last_response.status
     assert_equal "test_delete.txt has been deleted.", session[:message]
 
@@ -138,7 +142,7 @@ class AppTest < Minitest::Test
   def test_signin
     post "/users/signin", username: "admin", password: "secret"
     assert_equal 302, last_response.status
-    assert_equal "Welcome admin", session[:message]
+    assert_equal "Welcome admin!", session[:message]
     assert_equal "admin", session[:username]
 
     get last_response["Location"]
@@ -162,5 +166,14 @@ class AppTest < Minitest::Test
     assert_equal nil, session[:username]
     assert_includes last_response.body, "You have been signed out"
     assert_includes last_response.body, "Sign In"
+  end
+
+  def editing_document_signed_out
+    create_document "changes.txt"
+
+    get "/changes.txt/edit"
+
+    assert_equal 302, last_response.status
+    assert_includes "You must be signed in to do that", last_response.status
   end
 end
